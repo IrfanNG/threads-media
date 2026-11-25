@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>irfanrff — Benda yang aku build</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --paper:#F3F1EA; --ink:#141412; --muted:#A3A19A; --sub:#8E8C85; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--paper);overflow:hidden}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+       cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none}
+  body.dragging{cursor:grabbing}
+
+  .center{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;z-index:2}
+  h1{font-family:Newsreader,"Iowan Old Style",Georgia,serif;font-weight:400;letter-spacing:-.025em;
+     font-size:clamp(40px,5.6vmin,84px);line-height:1.02}
+  h1 span{display:block}
+  h1 .muted{color:var(--muted)}
+  .cap{margin:clamp(18px,2.6vmin,34px) auto 0;max-width:23em;font-size:clamp(14px,1.75vmin,19px);line-height:1.5;color:var(--sub)}
+  .cap b{color:var(--ink);font-weight:500}
+
+  #ring{position:fixed;inset:0;z-index:1}
+  .tile{position:absolute;left:0;top:0;will-change:transform;filter:drop-shadow(0 14px 22px rgba(30,26,18,.16)) drop-shadow(0 2px 4px rgba(30,26,18,.10))}
+  .tile .art{display:block;width:100%;height:100%;object-fit:cover;border-radius:30%;background:#E4E1D8;-webkit-user-drag:none}
+  .tile .label{position:absolute;left:50%;top:calc(100% + 12px);transform:translate(-50%,6px);white-space:nowrap;
+     font-size:12px;font-weight:500;letter-spacing:.01em;color:var(--ink);background:rgba(255,255,255,.85);
+     padding:6px 11px;border-radius:999px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;
+     box-shadow:0 4px 14px rgba(30,26,18,.08)}
+  .tile:hover .label{opacity:1;transform:translate(-50%,0)}
+
+  .hint{position:fixed;left:50%;bottom:clamp(22px,4vmin,44px);transform:translateX(-50%);width:46px;height:46px;border-radius:50%;
+     border:1px solid rgba(20,20,18,.22);display:flex;align-items:center;justify-content:center;z-index:3;background:transparent}
+  .hint svg{animation:nudge 2.2s ease-in-out infinite}
+  @keyframes nudge{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
+
+</style>
+</head>
+<body>
+  <div id="ring"></div>
+
+  <main class="center">
+    <h1><span>Benda yang aku build,</span><span class="muted">satu mesej je.</span></h1>
+    <p class="cap">Setiap satu bermula dari <b>satu mesej kat Hermes</b>, dan habis tanpa aku buka laptop.</p>
+  </main>
+
+  <a class="hint" href="#" aria-label="Scroll">
+    <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="#141412" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v13M1.5 8.5 7 14l5.5-5.5"/></svg>
+  </a>
+
+<script>
+(() => {
+  const WORKS = [
+    ['Portfolio showcase', 128], ['Threads audit', 112], ['Motion reel', 120], ['Deploy log', 104], ['Hermes bot', 126],
+    ['SaaS landing', 100], ['Brand kit', 122], ['Promo video', 116], ['Case study', 118], ['Newsletter', 102],
+  ];
+  const TILT = [-8, 6, 10, -4, 7, -11, 5, -6, 9, -3];   // resting rotation per tile (deg)
+
+  // squircle (superellipse) clip-path for a given size
+  function squircle(s, n = 4.2) {
+    const r = s / 2, pts = [];
+    for (let i = 0; i < 64; i++) {
+      const t = i / 64 * Math.PI * 2, c = Math.cos(t), si = Math.sin(t);
+      pts.push(`${(r + Math.sign(c) * Math.pow(Math.abs(c), 2 / n) * r).toFixed(1)} ${(r + Math.sign(si) * Math.pow(Math.abs(si), 2 / n) * r).toFixed(1)}`);
+    }
+    return `path("M${pts.join('L')}Z")`;
+  }
+
+  const ring = document.getElementById('ring');
+  const tiles = WORKS.map(([label, base], i) => {
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.innerHTML = `<img class="art" src="tiles/${String(i + 1).padStart(2, '0')}.jpg" alt="${label}" draggable="false"><span class="label">${label}</span>`;
+    ring.appendChild(el);
+    return { el, art: el.firstElementChild, base, tilt: TILT[i], phase: i / WORKS.length * Math.PI * 2 };
+  });
+
+  let W, H, R, unit;
+  function layout() {
+    W = innerWidth; H = innerHeight;
+    unit = Math.min(W, H) / 1000;
+    R = Math.min(W, H) * 0.405;
+    tiles.forEach(t => {
+      t.size = Math.round(t.base * unit * 1.45);
+      t.el.style.width = t.el.style.height = t.size + 'px';
+      t.art.style.clipPath = squircle(t.size);
+    });
+  }
+  addEventListener('resize', layout); layout();
+
+  // ---- motion: slow spin + inertial drag, tiles stretch with velocity
+  const BASE = 0.075;            // rad/s idle spin
+  let angle = 0, vel = BASE, dragging = false, lastA = 0, lastT = 0, dragVel = 0, stretch = 0;
+  const ptrAngle = e => Math.atan2(e.clientY - H / 2, e.clientX - W / 2);
+
+  addEventListener('pointerdown', e => {
+    dragging = true; document.body.classList.add('dragging');
+    lastA = ptrAngle(e); lastT = performance.now(); dragVel = 0;
+  });
+  addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const a = ptrAngle(e), now = performance.now();
+    let d = a - lastA; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+    angle += d;
+    const dt = Math.max(1, now - lastT) / 1000;
+    dragVel = dragVel * .6 + (d / dt) * .4;
+    lastA = a; lastT = now;
+  });
+  const end = () => { if (!dragging) return; dragging = false; document.body.classList.remove('dragging'); vel = dragVel; };
+  addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  addEventListener('wheel', e => { vel += e.deltaY * 0.0009; }, { passive: true });
+
+  let prev = performance.now();
+  function frame(now) {
+    const dt = Math.min(.05, (now - prev) / 1000); prev = now;
+    if (!dragging) {
+      vel += (BASE * Math.sign(vel || 1) - vel) * (1 - Math.exp(-dt * 1.6));   // ease back to idle spin
+      angle += vel * dt;
+    }
+    const v = dragging ? dragVel : vel;
+    const target = Math.min(.35, Math.abs(v) * .09);
+    stretch += (target - stretch) * (1 - Math.exp(-dt * 10));
+
+    tiles.forEach(t => {
+      const a = angle + t.phase - Math.PI / 2;
+      const x = W / 2 + Math.cos(a) * R - t.size / 2;
+      const y = H / 2 + Math.sin(a) * R * 0.98 - t.size / 2;
+      const tan = (a + Math.PI / 2) * 180 / Math.PI;           // direction of travel
+      const bob = Math.sin(now / 1400 + t.phase * 3) * 2;      // tiny idle wobble
+      t.el.style.transform =
+        `translate(${x}px,${y}px) rotate(${tan}deg) scale(${1 + stretch},${1 - stretch * .45}) rotate(${-tan + t.tilt + bob}deg)`;
+    });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
